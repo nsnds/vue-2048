@@ -38,12 +38,18 @@ export default {
   data () {
     return {
       score: 0, // 当前分数
-      bestScore: 0, // 最高分数
+      bestScore: localStorage.getItem('bestScore'), // 最高分数
       over: false, // 是否游戏结束
       list: [], // 格子数据
       size: 4, // 格子数 n*n
       pr: 0.9,
-      intiNum: [2, 4]
+      intiNum: [2, 4],
+      direction: [
+        { x: 0, y: -1 }, // 上
+        { x: 0, y: 1 }, // 下
+        { x: -1, y: 0 }, // 左
+        { x: 1, y: 0 } // 右
+      ]
     }
   },
   mounted () {
@@ -64,7 +70,7 @@ export default {
     },
     // 插入一个非空格子
     setRandom () {
-      if (this.hasAvailableCells) {
+      if (this.hasAvailableCells()) {
         // 获取一个随机空格子坐标
         let [x, y] = this.randomAvailableCells()
         // 格子赋值
@@ -100,7 +106,35 @@ export default {
     },
     // 是否存在空格子
     hasAvailableCells () {
-      return !!this.availableCells()
+      return !!this.availableCells().length
+    },
+    // 是否存在可合并的格子
+    hasMergedCells () {
+      let _size = this.size
+      for (let i = 0; i < _size; i++) {
+        for (let j = 0; j < _size; j++) {
+          let cell = this.list[i][j]
+          if (cell) {
+            for (let dir = 0; dir < 4; dir++) {
+              let vector = this.direction[dir]
+              if (this.withinBounds(i + vector.x, j + vector.y)) {
+                let other = this.list[i + vector.x][j + vector.y]
+                if (other && other === cell) return true
+              }
+            }
+          }
+        }
+      }
+      return false
+    },
+    // 是否还在格子区域中
+    withinBounds (x, y) {
+      let _size = this.size
+      return x > 0 && y > 0 && x < _size && y < _size
+    },
+    // 游戏是否继续
+    isAvailable () {
+      return this.hasAvailableCells() || this.hasMergedCells()
     },
     // 监听键盘方向键事件
     keyDown (e) {
@@ -122,25 +156,26 @@ export default {
           this.move(2)
           break
       }
-      // this.setRandom()
+      this.setRandom()
     },
     // 移动算法, i=旋转次数
     move (i) {
-      let arr = this.rotate(Array.from(this.list), i)
-      console.log(arr)
-      this.list = arr
-      // .map(item, idx) => {
-      //   return this.moveLeft(item)
-      // }
+      let arr = this.rotate(Array.from(this.list), i).map((item) => {
+        return this.moveLeft(item)
+      })
+      this.list = this.rotate(arr, 4 - i)
+      this.setLocalstorage()
+      if (!this.isAvailable()) {
+        this.over = true
+      }
     },
     // 单行左移
     moveLeft (list) {
       let _list = [] // 当前行非空格子
       let _size = this.size
-      let flag = false
 
-      let i
-      for (i = 0; i < _size; i++) {
+      // 获取当前行非空格子数组
+      for (let i = 0; i < _size; i++) {
         if (list[i]) {
           _list.push({
             x: i,
@@ -151,8 +186,25 @@ export default {
       }
 
       _list.forEach(item => {
-        let farthest = this.
+        let farthest = this.farthestPosition(list, item)
+        let next = list[farthest - 1] // 最远空格子的左一格子
+
+        if (next && next === item.value && !_list[farthest - 1].merged) {
+          // 合并: 左一存在 & 值与当前格子值相同 & 左一未合并过
+          list[farthest - 1] = next * 2
+          list[item.x] = undefined
+          item = { x: farthest - 1, merged: true, value: next }
+          this.score += next * 2
+        } else {
+          if (farthest !== item.x) {
+            // 当前格子不是最远空格子进行移动
+            list[farthest] = item.value
+            list[item.x] = undefined
+            item.x = farthest
+          }
+        }
       })
+      return list
     },
     // 逆时针旋转
     rotate (arr, n) {
@@ -182,6 +234,26 @@ export default {
       }
       if (n > 1) tmp = this.rotate(tmp, n - 1)
       return tmp
+    },
+    // 左边最远空格的位置
+    farthestPosition (list, cell) {
+      let farthest = cell.x
+      while (farthest > 0 && !list[farthest - 1]) {
+        farthest = farthest - 1
+      }
+      return farthest
+    },
+    setLocalstorage () {
+      let score = localStorage.getItem('bestScore')
+      if (score) {
+        if (this.score > score) {
+          localStorage.setItem('bestScore', this.score)
+          this.bestScore = this.score
+        }
+      } else {
+        localStorage.setItem('bestScore', this.score)
+        this.bestScore = this.score
+      }
     }
   }
 }
