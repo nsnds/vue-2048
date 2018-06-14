@@ -38,7 +38,7 @@ export default {
   data () {
     return {
       score: 0, // 当前分数
-      bestScore: localStorage.getItem('bestScore'), // 最高分数
+      bestScore: localStorage.getItem('bestScore') || 0, // 最高分数
       over: false, // 是否游戏结束
       list: [], // 格子数据
       size: 4, // 格子数 n*n
@@ -142,21 +142,24 @@ export default {
         // 上
         case 38:
           this.move(1)
+          this.setRandom()
           break
         // 下
         case 40:
           this.move(3)
+          this.setRandom()
           break
         // 左
         case 37:
           this.move(0)
+          this.setRandom()
           break
         // 右
         case 39:
           this.move(2)
+          this.setRandom()
           break
       }
-      this.setRandom()
     },
     // 移动算法, i=旋转次数
     move (i) {
